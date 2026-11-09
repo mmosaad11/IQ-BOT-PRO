@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep Black & Dark Slate -->
+    <color name="bg_dark_black">#080C0E</color>
+    <color name="surface_dark">#0E1418</color>
+    <color name="surface_card">#131B20</color>
+    <color name="surface_card_border">#1D2930</color>
+
+    <!-- Deep Teal Palette -->
+    <color name="teal_primary">#00E5BC</color>
+    <color name="teal_secondary">#00BFA5</color>
+    <color name="teal_deep">#004D40</color>
+    <color name="teal_glow">#26A69A</color>
+    
+    <!-- Status Colors -->
+    <color name="win_green">#00E676</color>
+    <color name="loss_red">#FF5252</color>
+    <color name="draw_yellow">#FFD600</color>
+    
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#90A4AE</color>
+    <color name="text_muted">#546E7A</color>
+</resources>

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IQ BOT PRO</string>
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_strategy">Strategy</string>
+    <string name="tab_history">History</string>
+    <string name="tab_settings">Settings</string>
+
+    <string name="practice_balance">Practice Balance</string>
+    <string name="practice_only_notice">Practice Account Mode Only</string>
+    <string name="practice_only_desc">Protected mode: Real live trading is strictly disabled.</string>
+    <string name="daily_profit">Daily P&amp;L</string>
+    <string name="connection_status">Connection</string>
+    <string name="bot_status">Bot Status</string>
+    
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="status_connecting">Connecting...</string>
+    <string name="status_idle">IDLE</string>
+    <string name="status_running">RUNNING</string>
+    <string name="status_paused">PAUSED</string>
+    <string name="status_stopped">STOPPED</string>
+
+    <string name="btn_start">START BOT</string>
+    <string name="btn_stop">STOP BOT</string>
+    <string name="btn_connect">Connect Bridge</string>
+    <string name="btn_disconnect">Disconnect</string>
+
+    <string name="strategy_title">Keltner15 Strategy</string>
+    <string name="strategy_desc">EMA 20 + ATR 10 (1.5x) Channel breakout on 15M candles</string>
+    <string name="timeframe_label">Timeframe</string>
+    <string name="timeframe_val">15 Minutes</string>
+    <string name="expiry_label">Expiry</string>
+    <string name="expiry_val">15 Minutes</string>
+    <string name="martingale_title">9-Level Martingale Ladder</string>
+    <string name="martingale_desc">Exact mathematical progression sequence</string>
+
+    <string name="trade_history">Trade History</string>
+    <string name="trade_win">WIN</string>
+    <string name="trade_loss">LOSS</string>
+    <string name="trade_draw">DRAW</string>
+    <string name="no_trades">No trade records yet. Start the bot with your Python bridge to stream live trades.</string>
+
+    <string name="settings_title">Bot &amp; Bridge Settings</string>
+    <string name="bridge_host_label">Python Bridge Host (WebSocket)</string>
+    <string name="bridge_host_hint">ws://192.168.1.50:8765</string>
+    <string name="account_id_label">Practice Account Email / ID</string>
+    <string name="password_label">Practice Password</string>
+    <string name="password_hint">Stored in Android EncryptedSharedPreferences</string>
+    <string name="save_credentials">Save Securely</string>
+    <string name="clear_credentials">Clear Credentials</string>
+    <string name="security_note">Passwords are encrypted with hardware-backed Android KeyStore (MasterKeys). Passwords are never logged, displayed, or hardcoded.</string>
+    <string name="language_label">Language / اللغة</string>
+</resources>

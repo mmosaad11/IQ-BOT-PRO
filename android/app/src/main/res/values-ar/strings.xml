@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">IQ BOT PRO</string>
+    <string name="tab_dashboard">لوحة التحكم</string>
+    <string name="tab_strategy">الاستراتيجية</string>
+    <string name="tab_history">سجل الصفقات</string>
+    <string name="tab_settings">الإعدادات</string>
+
+    <string name="practice_balance">رصيد الحساب التجريبي</string>
+    <string name="practice_only_notice">وضع الحساب التجريبي فقط</string>
+    <string name="practice_only_desc">وضع محمي: التداول بالحساب الحقيقي معطل نهائياً لحمايتك.</string>
+    <string name="daily_profit">الربح/الخسارة اليومية</string>
+    <string name="connection_status">حالة الاتصال</string>
+    <string name="bot_status">حالة البوت</string>
+    
+    <string name="status_connected">متصل</string>
+    <string name="status_disconnected">غير متصل</string>
+    <string name="status_connecting">جارٍ الاتصال...</string>
+    <string name="status_idle">خامل (جاهز)</string>
+    <string name="status_running">قيد التشغيل</string>
+    <string name="status_paused">متوقف مؤقتاً</string>
+    <string name="status_stopped">متوقف</string>
+
+    <string name="btn_start">بدء تشغيل البوت</string>
+    <string name="btn_stop">إيقاف البوت</string>
+    <string name="btn_connect">اتصال بجسر بايثون</string>
+    <string name="btn_disconnect">قطع الاتصال</string>
+
+    <string name="strategy_title">استراتيجية Keltner15</string>
+    <string name="strategy_desc">قناة كيلتنر EMA 20 + ATR 10 (1.5x) على شموع 15 دقيقة</string>
+    <string name="timeframe_label">الإطار الزمني</string>
+    <string name="timeframe_val">15 دقيقة</string>
+    <string name="expiry_label">وقت انتهاء الصفقة</string>
+    <string name="expiry_val">15 دقيقة</string>
+    <string name="martingale_title">جدول المارتينجال (9 مستويات)</string>
+    <string name="martingale_desc">المضاعفة الحسابية الدقيقة لحماية رأس المال</string>
+
+    <string name="trade_history">سجل الصفقات</string>
+    <string name="trade_win">ربح (WIN)</string>
+    <string name="trade_loss">خسارة (LOSS)</string>
+    <string name="trade_draw">تعادل (DRAW)</string>
+    <string name="no_trades">لا توجد صفقات مسجلة بعد. قم بتشغيل البوت مع جسر بايثون لبدء استقبال الصفقات المباشرة.</string>
+
+    <string name="settings_title">إعدادات البوت والاتصال</string>
+    <string name="bridge_host_label">عنوان خادم بايثون (WebSocket Bridge)</string>
+    <string name="bridge_host_hint">ws://192.168.1.50:8765</string>
+    <string name="account_id_label">البريد الإلكتروني / معرف الحساب التجريبي</string>
+    <string name="password_label">كلمة مرور الحساب التجريبي</string>
+    <string name="password_hint">مشفرة بالكامل عبر Android KeyStore</string>
+    <string name="save_credentials">حفظ البيانات بأمان</string>
+    <string name="clear_credentials">مسح بيانات الاعتماد</string>
+    <string name="security_note">يتم تشفير كلمات المرور باستخدام تشفير عتادي قوي EncryptedSharedPreferences ومفتاح MasterKey. لا يتم عرض أو تضمين أي كلمة سر في الكود البرمجي.</string>
+    <string name="language_label">اللغة / Language</string>
+</resources>
