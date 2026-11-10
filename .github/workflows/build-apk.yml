@@ -26,12 +26,16 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK Components
+      - name: Configure Android SDK
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then
+            echo "Error: sdkmanager not found"
+            exit 1
+          fi
+          echo "Using SDK Manager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses || true
+          "$SDKMANAGER" --install "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build Debug APK
         working-directory: android
