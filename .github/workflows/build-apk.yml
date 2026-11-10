@@ -26,11 +26,12 @@ jobs:
           distribution: temurin
           cache: gradle
 
-      - name: Configure Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK Components
         run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
 
       - name: Build Debug APK
         working-directory: android
