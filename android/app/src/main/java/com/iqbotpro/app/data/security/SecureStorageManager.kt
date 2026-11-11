@@ -35,7 +35,7 @@ class SecureStorageManager(context: Context) {
     }
 
     fun getBridgeHost(): String {
-        return prefs.getString(KEY_BRIDGE_HOST, "ws://192.168.1.100:8765") ?: "ws://192.168.1.100:8765"
+        return prefs.getString(KEY_BRIDGE_HOST, "ws://127.0.0.1:8765") ?: "ws://127.0.0.1:8765"
     }
 
     fun savePracticeAccountId(id: String) {
