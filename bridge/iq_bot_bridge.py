@@ -108,8 +108,12 @@ async def broadcast(message):
         clients.discard(client)
 
 
-def start_original_bot():
+def start_original_bot(strategy_mode="keltner15"):
     global bot_thread
+
+    allowed_modes = {"both", "keltner15", "trend_reversal"}
+    if strategy_mode not in allowed_modes:
+        strategy_mode = "keltner15"
 
     with thread_lock:
         if bot_thread is not None and bot_thread.is_alive():
@@ -120,6 +124,8 @@ def start_original_bot():
         if not cfg.get("email") or not cfg.get("password"):
             return False, "بيانات الدخول غير موجودة في إعدادات البوت."
 
+        cfg["strategy_mode"] = strategy_mode
+
         bot_thread = threading.Thread(
             target=bot.run,
             args=(cfg,),
@@ -128,7 +134,7 @@ def start_original_bot():
         )
         bot_thread.start()
 
-    return True, "تم إرسال أمر تشغيل البوت الأصلي."
+    return True, f"تم تشغيل البوت بوضع الاستراتيجيات: {strategy_mode}."
 
 
 def stop_original_bot():
@@ -167,7 +173,7 @@ async def handler(websocket):
                 action = str(data.get("action", "")).upper()
 
                 if action == "START":
-                    ok, message = start_original_bot()
+                    ok, message = start_original_bot(str(data.get("strategyMode", "keltner15")))
                     await broadcast({
                         "type": "LOG",
                         "message": message

@@ -1,0 +1,8 @@
+.gradle/
+**/.gradle/
+**/build/
+**/__pycache__/
+*.pyc
+*.backup
+*.before_strategy_changes
+local.properties

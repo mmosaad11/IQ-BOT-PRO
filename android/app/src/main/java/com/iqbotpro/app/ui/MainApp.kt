@@ -32,6 +32,7 @@ fun MainApp(
 ) {
     var currentTab by remember { mutableStateOf(AppTab.DASHBOARD) }
     var currentLanguage by remember { mutableStateOf(secureStorage.getLanguage()) }
+    var selectedStrategyMode by remember { mutableStateOf("both") }
 
     val connectionStatus by bridgeClient.connectionStatus.collectAsState()
     val botState by bridgeClient.botState.collectAsState()
@@ -93,12 +94,15 @@ fun MainApp(
                         connectionStatus = connectionStatus,
                         botState = botState,
                         recentTrades = trades,
-                        onStartBot = { bridgeClient.startBot() },
+                        onStartBot = { bridgeClient.startBot(selectedStrategyMode) },
                         onStopBot = { bridgeClient.stopBot() },
                         onConnectBridge = { bridgeClient.connect(secureStorage.getBridgeHost()) },
                         onNavigateToSettings = { currentTab = AppTab.SETTINGS }
                     )
-                    AppTab.STRATEGY -> StrategyScreen()
+                    AppTab.STRATEGY -> StrategyScreen(
+                        selectedMode = selectedStrategyMode,
+                        onModeChange = { selectedStrategyMode = it }
+                    )
                     AppTab.HISTORY -> HistoryScreen(trades = trades)
                     AppTab.SETTINGS -> SettingsScreen(
                         currentHost = secureStorage.getBridgeHost(),

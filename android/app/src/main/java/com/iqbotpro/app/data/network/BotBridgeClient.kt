@@ -138,14 +138,21 @@ class BotBridgeClient(
         _botState.value = BotState.IDLE
     }
 
-    fun startBot() {
+    fun startBot(strategyMode: String = "keltner15") {
         if (_connectionStatus.value != ConnectionStatus.CONNECTED) {
             scope.launch {
                 _statusLogs.emit("Cannot start: Python bot bridge is not connected.")
             }
             return
         }
-        val command = """{"type":"COMMAND","action":"START","strategy":"Keltner15","timeframe":15,"expiry":15,"accountType":"PRACTICE"}"""
+
+        val safeMode = when (strategyMode) {
+            "both" -> "both"
+            "trend_reversal" -> "trend_reversal"
+            else -> "keltner15"
+        }
+
+        val command = """{"type":"COMMAND","action":"START","strategyMode":"$safeMode","accountType":"PRACTICE"}"""
         activeWebSocket?.send(command)
         _botState.value = BotState.RUNNING
     }
