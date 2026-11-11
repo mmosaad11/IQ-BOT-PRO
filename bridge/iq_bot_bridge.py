@@ -1,172 +1,230 @@
 #!/usr/bin/env python3
-"""
-IQ BOT PRO - Python Bot Bridge Server
-=====================================
-This standalone Python script creates a lightweight WebSocket bridge on your
-computer or trading VPS. The Android native app (IQ BOT PRO) connects to this
-bridge over your local Wi-Fi or VPS IP (default port 8765).
-
-Trading Strategy Architecture:
-- Strategy: Keltner15 (EMA 20, ATR 10, Multiplier 1.5)
-- Timeframe: 15 minutes (900 seconds)
-- Expiry: 15 minutes
-- 9-Level Martingale: [1.00, 1.52, 3.38, 7.51, 16.67, 36.99, 82.11, 182.24, 404.48]
-- Practice Account Mode Only: Real account execution is strictly blocked.
-
-Installation:
-    pip install websockets asyncio
-
-To integrate your existing bot:
-    Attach your existing trading loop / broker connection (e.g. iqoptionapi)
-    to the callbacks: on_start_trading(), on_stop_trading().
-"""
-
 import asyncio
+import csv
+import importlib
 import json
 import logging
+import os
+import queue
+import sys
+import threading
 import time
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+import websockets
 
-# Exact 9-step Martingale ladder from specification
-MARTINGALE_LADDER = [1.00, 1.52, 3.38, 7.51, 16.67, 36.99, 82.11, 182.24, 404.48]
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
-class IQBotEngine:
-    def __init__(self):
-        self.state = "IDLE"  # IDLE, RUNNING, STOPPED
-        self.practice_balance = 10000.00
-        self.daily_profit = 0.00
-        self.current_martingale_index = 0
-        self.active_strategy = "Keltner15"
-        self.timeframe = 15  # 15 minutes
-        self.expiry = 15     # 15 minutes
-        self.account_type = "PRACTICE"  # Safety lock
+BOT_DIR = os.path.expanduser("~/iqbot_phone")
+PORT = 8765
 
-    def get_current_stake(self) -> float:
-        idx = min(self.current_martingale_index, len(MARTINGALE_LADDER) - 1)
-        return MARTINGALE_LADDER[idx]
+sys.path.insert(0, BOT_DIR)
 
-    def register_trade_result(self, result: str, profit: float, pair: str = "EURUSD"):
-        """
-        result must be "WIN", "LOSS", or "DRAW"
-        """
-        stake = self.get_current_stake()
-        self.daily_profit += profit
-        self.practice_balance += profit
+bot = importlib.import_module("bot")
 
-        trade_item = {
-            "id": f"TRD-{int(time.time()*1000)}",
+clients = set()
+events = queue.Queue()
+bot_thread = None
+thread_lock = threading.Lock()
+
+
+# Relay original bot logs without changing its logging behavior.
+_original_log = bot.log
+
+def bridged_log(message, *args, **kwargs):
+    _original_log(message, *args, **kwargs)
+    events.put({
+        "type": "LOG",
+        "message": str(message)
+    })
+
+bot.log = bridged_log
+
+
+# Relay real trades after the original CSV writer saves them.
+_original_log_trade = bot.log_trade
+
+def bridged_log_trade(row):
+    _original_log_trade(row)
+
+    try:
+        trade = {
+            "id": f"TRD-{time.time_ns()}",
             "timestamp": int(time.time() * 1000),
-            "pair": pair,
-            "direction": "CALL",
-            "amount": stake,
-            "result": result.upper(),
-            "profit": profit,
-            "martingaleLevel": self.current_martingale_index + 1
+            "pair": str(row[1]),
+            "direction": str(row[2]).upper(),
+            "amount": float(row[4]),
+            "result": str(row[7]).upper(),
+            "profit": float(row[8]),
+            "martingaleLevel": int(row[3]),
         }
+        events.put({
+            "type": "TRADE_EVENT",
+            "trade": trade
+        })
+    except Exception as exc:
+        events.put({
+            "type": "LOG",
+            "message": f"Trade display error: {exc}"
+        })
 
-        # Martingale Progression Logic:
-        # Upon WIN or DRAW -> reset to level 1
-        # Upon LOSS -> advance to next step up to 9
-        if result.upper() in ["WIN", "DRAW"]:
-            self.current_martingale_index = 0
-        else:
-            if self.current_martingale_index < len(MARTINGALE_LADDER) - 1:
-                self.current_martingale_index += 1
-            else:
-                logging.warning("Max Martingale level 9 reached! Resetting to Level 1.")
-                self.current_martingale_index = 0
-
-        return trade_item
+bot.log_trade = bridged_log_trade
 
 
-bot_engine = IQBotEngine()
-connected_clients = set()
+def current_state():
+    if bot_thread is None:
+        return "IDLE"
+    if bot_thread.is_alive():
+        return "RUNNING"
+    return "STOPPED"
 
 
-async def broadcast(message: dict):
-    if not connected_clients:
+def status_message():
+    status = bot.STATUS
+    return {
+        "type": "STATUS_UPDATE",
+        "balance": status.get("balance"),
+        "dailyProfit": float(status.get("pnl", 0.0)),
+        "botState": current_state()
+    }
+
+
+async def broadcast(message):
+    if not clients:
         return
-    payload = json.dumps(message)
-    await asyncio.gather(*[client.send(payload) for client in connected_clients], return_exceptions=True)
+
+    payload = json.dumps(message, ensure_ascii=False)
+    disconnected = []
+
+    for client in list(clients):
+        try:
+            await client.send(payload)
+        except Exception:
+            disconnected.append(client)
+
+    for client in disconnected:
+        clients.discard(client)
+
+
+def start_original_bot():
+    global bot_thread
+
+    with thread_lock:
+        if bot_thread is not None and bot_thread.is_alive():
+            return False, "البوت يعمل بالفعل."
+
+        cfg = bot.load_cfg()
+
+        if not cfg.get("email") or not cfg.get("password"):
+            return False, "بيانات الدخول غير موجودة في إعدادات البوت."
+
+        bot_thread = threading.Thread(
+            target=bot.run,
+            args=(cfg,),
+            name="Original-IQ-Bot",
+            daemon=True
+        )
+        bot_thread.start()
+
+    return True, "تم إرسال أمر تشغيل البوت الأصلي."
+
+
+def stop_original_bot():
+    if bot_thread is None or not bot_thread.is_alive():
+        return False
+
+    bot.STOP.set()
+    return True
 
 
 async def handler(websocket):
-    connected_clients.add(websocket)
-    client_ip = websocket.remote_address[0] if websocket.remote_address else "Unknown"
-    logging.info(f"Android client connected from {client_ip}")
-
-    # Send initial state to Android
-    await websocket.send(json.dumps({
-        "type": "STATUS_UPDATE",
-        "balance": bot_engine.practice_balance,
-        "dailyProfit": bot_engine.daily_profit,
-        "botState": bot_engine.state
-    }))
+    clients.add(websocket)
+    logging.info("Android app connected.")
 
     try:
+        await websocket.send(json.dumps(
+            status_message(),
+            ensure_ascii=False
+        ))
+
         async for raw_message in websocket:
             try:
                 data = json.loads(raw_message)
-                msg_type = data.get("type")
-
-                if msg_type == "HANDSHAKE":
-                    logging.info(f"Handshake accepted from {data.get('client')}")
-
-                elif msg_type == "COMMAND":
-                    action = data.get("action")
-                    if action == "START":
-                        bot_engine.state = "RUNNING"
-                        logging.info("Bot START command received from Android.")
-                        await broadcast({
-                            "type": "STATUS_UPDATE",
-                            "botState": "RUNNING",
-                            "balance": bot_engine.practice_balance,
-                            "dailyProfit": bot_engine.daily_profit
-                        })
-                        await broadcast({
-                            "type": "LOG",
-                            "message": f"Keltner15 strategy running on 15M candles (Practice Account Only). Stake: ${bot_engine.get_current_stake():.2f}"
-                        })
-
-                    elif action == "STOP":
-                        bot_engine.state = "STOPPED"
-                        logging.info("Bot STOP command received from Android.")
-                        await broadcast({
-                            "type": "STATUS_UPDATE",
-                            "botState": "STOPPED"
-                        })
-                        await broadcast({
-                            "type": "LOG",
-                            "message": "Bot execution stopped gracefully."
-                        })
-
             except json.JSONDecodeError:
-                logging.error(f"Invalid JSON received: {raw_message}")
+                continue
 
-    except Exception as e:
-        logging.error(f"Client disconnected error: {e}")
+            msg_type = data.get("type")
+
+            if msg_type == "HANDSHAKE":
+                await websocket.send(json.dumps({
+                    "type": "LOG",
+                    "message": "Connected to original Python bot bridge."
+                }))
+
+            elif msg_type == "COMMAND":
+                action = str(data.get("action", "")).upper()
+
+                if action == "START":
+                    ok, message = start_original_bot()
+                    await broadcast({
+                        "type": "LOG",
+                        "message": message
+                    })
+                    await broadcast(status_message())
+
+                elif action == "STOP":
+                    stopped = stop_original_bot()
+                    message = (
+                        "تم إرسال طلب إيقاف البوت."
+                        if stopped else "البوت غير مشغّل حاليًا."
+                    )
+                    await broadcast({
+                        "type": "LOG",
+                        "message": message
+                    })
+
+    except websockets.exceptions.ConnectionClosed:
+        pass
+    except Exception as exc:
+        logging.exception("Client handler error: %s", exc)
     finally:
-        connected_clients.remove(websocket)
-        logging.info("Android client disconnected.")
+        clients.discard(websocket)
+        logging.info("Android app disconnected.")
+
+
+async def monitor_bot():
+    while True:
+        try:
+            while True:
+                event = events.get_nowait()
+                await broadcast(event)
+        except queue.Empty:
+            pass
+
+        await broadcast(status_message())
+        await asyncio.sleep(1)
 
 
 async def main():
-    import websockets
-    port = 8765
-    logging.info(f"=====================================================")
-    logging.info(f"  IQ BOT PRO - Python Bridge Server")
-    logging.info(f"  Listening on ws://0.0.0.0:{port}")
-    logging.info(f"  Account Mode: PRACTICE ONLY (Real trading blocked)")
-    logging.info(f"  Strategy: Keltner15 | 15M Timeframe | 15M Expiry")
-    logging.info(f"  Martingale 9-Levels: {MARTINGALE_LADDER}")
-    logging.info(f"=====================================================")
-    async with websockets.serve(handler, "0.0.0.0", port):
-        await asyncio.Future()  # run forever
+    logging.info("IQ BOT PRO - Original Bot Bridge")
+    logging.info("Listening on ws://127.0.0.1:%s", PORT)
+    logging.info("Trading logic remains in the original bot.py")
+    logging.info("Practice account protection remains enabled.")
+
+    asyncio.create_task(monitor_bot())
+
+    async with websockets.serve(
+        handler,
+        "127.0.0.1",
+        PORT
+    ):
+        await asyncio.Future()
 
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("Bridge stopped by user.")
+        logging.info("Bridge stopped.")
