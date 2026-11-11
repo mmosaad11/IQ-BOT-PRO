@@ -30,7 +30,7 @@ import java.util.Locale
 
 @Composable
 fun DashboardScreen(
-    balance: Double,
+    balance: Double?,
     dailyProfit: Double,
     connectionStatus: ConnectionStatus,
     botState: BotState,
@@ -117,7 +117,7 @@ fun DashboardScreen(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = String.format(Locale.US, "$%,.2f", balance),
+                    text = balance?.let { String.format(Locale.US, "$%,.2f", it) } ?: "في انتظار الرصيد",
                     style = MaterialTheme.typography.headlineLarge.copy(
                         fontFamily = FontFamily.Monospace,
                         color = Color.White

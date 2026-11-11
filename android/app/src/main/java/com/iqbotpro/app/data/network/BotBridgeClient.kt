@@ -46,8 +46,8 @@ class BotBridgeClient(
     private val _botState = MutableStateFlow(BotState.IDLE)
     val botState: StateFlow<BotState> = _botState.asStateFlow()
 
-    private val _practiceBalance = MutableStateFlow(10000.00)
-    val practiceBalance: StateFlow<Double> = _practiceBalance.asStateFlow()
+    private val _practiceBalance = MutableStateFlow<Double?>(null)
+    val practiceBalance: StateFlow<Double?> = _practiceBalance.asStateFlow()
 
     private val _dailyProfit = MutableStateFlow(0.00)
     val dailyProfit: StateFlow<Double> = _dailyProfit.asStateFlow()
@@ -89,7 +89,7 @@ class BotBridgeClient(
                         val msg = json.decodeFromString<BotBridgeMessage>(text)
                         when (msg.type) {
                             "STATUS_UPDATE" -> {
-                                msg.balance?.let { _practiceBalance.value = it }
+                                _practiceBalance.value = msg.balance
                                 msg.dailyProfit?.let { _dailyProfit.value = it }
                                 msg.botState?.let {
                                     _botState.value = try {
