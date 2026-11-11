@@ -39,6 +39,10 @@ fun MainApp(
     val dailyProfit by bridgeClient.dailyProfit.collectAsState()
     val trades by bridgeClient.trades.collectAsState()
 
+    LaunchedEffect(Unit) {
+        bridgeClient.connect(secureStorage.getBridgeHost())
+    }
+
     val layoutDirection = if (currentLanguage == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr
 
     CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
