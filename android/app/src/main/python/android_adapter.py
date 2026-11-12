@@ -1,3 +1,4 @@
+import json
 import threading
 import bot
 
@@ -43,7 +44,7 @@ def stop_bot():
 
 
 def get_bot_status():
-    return bot.get_status()
+    return json.dumps(bot.get_status(), ensure_ascii=False)
 
 
 def get_trades(limit=100):
@@ -82,4 +83,4 @@ def get_trades(limit=100):
             except (ValueError, KeyError, TypeError):
                 continue
 
-    return list(reversed(trades[-max(1, int(limit)):]))
+    return json.dumps(list(reversed(trades[-max(1, int(limit)):])) , ensure_ascii=False)
