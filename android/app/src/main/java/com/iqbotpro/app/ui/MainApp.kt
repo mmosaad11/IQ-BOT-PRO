@@ -50,6 +50,8 @@ fun MainApp(secureStorage: SecureStorageManager) {
     var botState by remember { mutableStateOf(BotState.IDLE) }
     var botMessage by remember { mutableStateOf("غير شغال") }
     var balance by remember { mutableStateOf<Double?>(null) }
+    var connected by remember { mutableStateOf(false) }
+    var accountMode by remember { mutableStateOf<String?>(null) }
     var dailyProfit by remember { mutableStateOf(0.0) }
     var trades by remember { mutableStateOf<List<TradeItem>>(emptyList()) }
 
@@ -64,15 +66,19 @@ fun MainApp(secureStorage: SecureStorageManager) {
                 val status = snapshot.first
                 val running = status["running"] as? Boolean ?: false
                 val message = status["text"]?.toString() ?: "غير شغال"
+                val pythonConnected = status["connected"] as? Boolean ?: false
+                val pythonMode = status["account_mode"]?.toString()?.uppercase()
+                val verified = pythonConnected && (pythonMode == "PRACTICE" || pythonMode == "REAL")
 
                 botMessage = message
+                connected = verified
+                accountMode = if (verified) pythonMode else null
                 botState = when {
-                    running || message.contains("جاري") -> BotState.RUNNING
-                    message == "غير شغال" -> BotState.IDLE
+                    running -> BotState.RUNNING
+                    message == "غير شغال" || message.contains("جاري") -> BotState.IDLE
                     else -> BotState.STOPPED
                 }
-
-                balance = (status["balance"] as? Number)?.toDouble()
+                balance = if (verified) (status["balance"] as? Number)?.toDouble() else null
                 dailyProfit = (status["pnl"] as? Number)?.toDouble() ?: 0.0
 
                 trades = snapshot.second.map { item ->
@@ -90,7 +96,10 @@ fun MainApp(secureStorage: SecureStorageManager) {
                     )
                 }
             } catch (e: Exception) {
-                botMessage = "خطأ في قراءة حالة البوت: ${e.message ?: "غير معروف"}"
+                connected = false
+            accountMode = null
+            balance = null
+            botMessage = "خطأ في قراءة حالة البوت: ${e.message ?: "غير معروف"}"
             }
 
             delay(2000)
@@ -148,6 +157,8 @@ fun MainApp(secureStorage: SecureStorageManager) {
                 when (currentTab) {
                     AppTab.DASHBOARD -> DashboardScreen(
                         balance = balance,
+                        connected = connected,
+                        accountMode = accountMode,
                         dailyProfit = dailyProfit,
                         botState = botState,
                         botMessage = botMessage,
@@ -189,7 +200,10 @@ fun MainApp(secureStorage: SecureStorageManager) {
                                     ContextCompat.startForegroundService(context, intent)
 
                                     botMessage = "جاري بدء التشغيل"
-                                    botState = BotState.RUNNING
+                                    botState = BotState.IDLE
+                                    connected = false
+                                    accountMode = null
+                                    balance = null
                                 } catch (e: Exception) {
                                     Toast.makeText(
                                         context,

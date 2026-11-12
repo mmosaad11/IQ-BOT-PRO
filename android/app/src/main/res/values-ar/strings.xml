@@ -51,4 +51,6 @@
     <string name="clear_credentials">مسح بيانات الاعتماد</string>
     <string name="security_note">يتم تشفير كلمات المرور باستخدام تشفير عتادي قوي EncryptedSharedPreferences ومفتاح MasterKey. لا يتم عرض أو تضمين أي كلمة سر في الكود البرمجي.</string>
     <string name="language_label">اللغة / Language</string>
+    <string name="real_balance">رصيد الحساب الحقيقي</string>
+    <string name="balance_unavailable">الرصيد غير متاح - تحقق من اتصال الحساب</string>
 </resources>

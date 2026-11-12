@@ -30,6 +30,8 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     balance: Double?,
+    connected: Boolean,
+    accountMode: String?,
     dailyProfit: Double,
     botState: BotState,
     botMessage: String,
@@ -146,7 +148,11 @@ var showRealConfirmation by remember { mutableStateOf(false) }
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.practice_balance),
+                    text = when (accountMode) {
+                        "REAL" -> stringResource(R.string.real_balance)
+                        "PRACTICE" -> stringResource(R.string.practice_balance)
+                        else -> stringResource(R.string.balance_unavailable)
+                    },
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary
                 )
@@ -223,8 +229,8 @@ var showRealConfirmation by remember { mutableStateOf(false) }
         // Internal Bot Status Card
         val statusDotColor by animateColorAsState(
             targetValue = when {
-                botMessage.contains("جاري") -> DrawYellow
-                botState == BotState.RUNNING -> WinGreen
+                connected && botState == BotState.RUNNING -> WinGreen
+                !connected && botMessage.contains("جاري") -> DrawYellow
                 botState == BotState.PAUSED -> DrawYellow
                 else -> LossRed
             },

@@ -72,8 +72,18 @@ DEFAULT_CFG = {
 
 # ---------------------------- التحكم من الواجهة ----------------------------
 STOP = threading.Event()
-STATUS = {"running": False, "text": "غير شغال", "pnl": 0.0, "step": 1, "amount": 0.0,
-          "pair": "-", "balance": None}
+STATUS = {
+    "running": False,
+    "connected": False,
+    "account_mode": None,
+    "error": None,
+    "text": "غير شغال",
+    "pnl": 0.0,
+    "step": 1,
+    "amount": 0.0,
+    "pair": "-",
+    "balance": None
+}
 
 
 class StopBot(Exception):
@@ -227,18 +237,37 @@ def connect(cfg):
 def ensure_connected(api, cfg):
     try:
         if api.check_connect():
-            apply_account_mode(api, cfg)
+            mode = apply_account_mode(api, cfg)
+            set_status(
+                connected=True,
+                account_mode=mode,
+                balance=api.get_balance(),
+                error=None
+            )
             return api
     except Exception:
         pass
 
+    set_status(
+        connected=False,
+        account_mode=None,
+        balance=None,
+        text="انقطع الاتصال - جاري إعادة المحاولة"
+    )
     log("انقطع الاتصال، إعادة محاولة...")
 
     for _ in range(5):
         try:
             ok, _r = api.connect()
             if ok:
-                apply_account_mode(api, cfg)
+                mode = apply_account_mode(api, cfg)
+                set_status(
+                    connected=True,
+                    account_mode=mode,
+                    balance=api.get_balance(),
+                    error=None,
+                    text="تم الاتصال وإعادة التحقق من الحساب"
+                )
                 log("تم إعادة الاتصال والتحقق من الحساب")
                 return api
         except Exception as e:
@@ -246,6 +275,12 @@ def ensure_connected(api, cfg):
 
         nap(5)
 
+    set_status(
+        connected=False,
+        account_mode=None,
+        balance=None,
+        text="تعذر إعادة الاتصال"
+    )
     log("تعذر إعادة الاتصال حاليًا")
     return None
 
@@ -510,7 +545,14 @@ def seconds_until_tomorrow_start(cfg):
 
 def main(cfg=None):
     STOP.clear()
-    set_status(running=True, text="جاري بدء التشغيل")
+    set_status(
+        running=False,
+        connected=False,
+        account_mode=None,
+        error=None,
+        balance=None,
+        text="جاري بدء التشغيل"
+    )
     provided_cfg = cfg if cfg is not None else load_cfg()
     cfg = {**DEFAULT_CFG, **provided_cfg}
 
@@ -541,7 +583,16 @@ def main(cfg=None):
     amounts = cfg["martingale"]
     set_status(text="جاري تسجيل الدخول...")
     api = connect(cfg)
-    set_status(balance=api.get_balance())
+    verified_mode = selected_account_mode(cfg)
+    verified_balance = api.get_balance()
+    set_status(
+        running=True,
+        connected=True,
+        account_mode=verified_mode,
+        balance=verified_balance,
+        error=None,
+        text=f"متصل - حساب {verified_mode}"
+    )
 
     st = load_state()
 
@@ -768,10 +819,20 @@ def run(cfg=None):
         main(cfg)
     except StopBot:
         log("تم إيقاف البوت")
+        set_status(text="تم إيقاف البوت", error=None)
     except Exception as e:
         log(f"خطأ: {e}")
+        set_status(
+            error=str(e),
+            text=f"خطأ: {e}"
+        )
     finally:
-        set_status(running=False, text="متوقف")
+        set_status(
+            running=False,
+            connected=False,
+            account_mode=None,
+            balance=None
+        )
 
 
 if __name__ == "__main__":

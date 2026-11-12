@@ -51,4 +51,6 @@
     <string name="clear_credentials">Clear Credentials</string>
     <string name="security_note">Passwords are encrypted with hardware-backed Android KeyStore (MasterKeys). Passwords are never logged, displayed, or hardcoded.</string>
     <string name="language_label">Language / اللغة</string>
+    <string name="real_balance">Real Account Balance</string>
+    <string name="balance_unavailable">Balance unavailable - verify account connection</string>
 </resources>
