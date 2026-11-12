@@ -1,8 +1,6 @@
 package com.iqbotpro.app.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,34 +13,43 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.iqbotpro.app.R
 import com.iqbotpro.app.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+private val PracticeOrange = Color(0xFFFF9800)
+private val RealGreen = Color(0xFF4CAF50)
+
 @Composable
 fun SettingsScreen(
-    currentHost: String,
-    currentAccountId: String,
-    hasSavedPassword: Boolean,
+    practiceAccountId: String,
+    hasPracticePassword: Boolean,
+    realAccountId: String,
+    hasRealPassword: Boolean,
     currentLanguage: String,
-    onSaveSettings: (host: String, accountId: String, password: String) -> Unit,
-    onClearCredentials: () -> Unit,
+    onSavePractice: (String, String) -> Unit,
+    onSaveReal: (String, String) -> Unit,
+    onClearPractice: () -> Unit,
+    onClearReal: () -> Unit,
     onChangeLanguage: (String) -> Unit
 ) {
     val scrollState = rememberScrollState()
 
-    var bridgeHost by remember { mutableStateOf(currentHost) }
-    var accountId by remember { mutableStateOf(currentAccountId) }
-    var password by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var showSavedSnackbar by remember { mutableStateOf(false) }
+    var practiceId by remember(practiceAccountId) {
+        mutableStateOf(practiceAccountId)
+    }
+    var practicePassword by remember { mutableStateOf("") }
+    var realId by remember(realAccountId) {
+        mutableStateOf(realAccountId)
+    }
+    var realPassword by remember { mutableStateOf("") }
+
+    var practiceVisible by remember { mutableStateOf(false) }
+    var realVisible by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -51,284 +58,298 @@ fun SettingsScreen(
             .padding(horizontal = 16.dp)
             .verticalScroll(scrollState)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
 
         Text(
-            text = stringResource(R.string.settings_title),
-            style = MaterialTheme.typography.headlineMedium.copy(color = TealPrimary)
+            "Settings",
+            style = MaterialTheme.typography.headlineMedium,
+            color = TealPrimary
         )
+
         Text(
-            text = "Configure your Python bot bridge & secure storage",
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextSecondary
+            "Manage your trading accounts securely",
+            color = TextSecondary,
+            fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(Modifier.height(20.dp))
 
-        // Practice Mode Enforced Banner
+        // PRACTICE ACCOUNT
+        AccountCard(
+            title = "PRACTICE ACCOUNT",
+            color = PracticeOrange,
+            accountId = practiceId,
+            onAccountIdChange = { practiceId = it },
+            password = practicePassword,
+            onPasswordChange = { practicePassword = it },
+            passwordVisible = practiceVisible,
+            onTogglePassword = { practiceVisible = !practiceVisible },
+            hasSavedPassword = hasPracticePassword,
+            passwordHint = "Practice password",
+            onSave = {
+                onSavePractice(practiceId.trim(), practicePassword)
+                practicePassword = ""
+            },
+            onClear = {
+                onClearPractice()
+                practiceId = ""
+                practicePassword = ""
+            }
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        // REAL ACCOUNT
+        AccountCard(
+            title = "REAL ACCOUNT",
+            color = RealGreen,
+            accountId = realId,
+            onAccountIdChange = { realId = it },
+            password = realPassword,
+            onPasswordChange = { realPassword = it },
+            passwordVisible = realVisible,
+            onTogglePassword = { realVisible = !realVisible },
+            hasSavedPassword = hasRealPassword,
+            passwordHint = "Real account password",
+            onSave = {
+                onSaveReal(realId.trim(), realPassword)
+                realPassword = ""
+            },
+            onClear = {
+                onClearReal()
+                realId = ""
+                realPassword = ""
+            }
+        )
+
+        Spacer(Modifier.height(20.dp))
+
+        // LANGUAGE
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = TealDarkBg),
-            border = androidx.compose.foundation.BorderStroke(1.dp, TealDeep)
+            colors = CardDefaults.cardColors(
+                containerColor = DarkSurfaceCard
+            )
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text(
+                    "Language / اللغة",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    val isEnglish = currentLanguage == "en"
+
+                    Button(
+                        onClick = { onChangeLanguage("en") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isEnglish) TealPrimary else DarkSurface
+                        )
+                    ) {
+                        Text("English")
+                    }
+
+                    Button(
+                        onClick = { onChangeLanguage("ar") },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (!isEnglish) TealPrimary else DarkSurface
+                        )
+                    ) {
+                        Text("العربية")
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = DarkSurface
+            ),
+            shape = RoundedCornerShape(10.dp)
         ) {
             Row(
                 modifier = Modifier.padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.Lock, contentDescription = null, tint = TealPrimary)
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.practice_only_notice),
-                        fontWeight = FontWeight.Bold,
-                        color = TealPrimary,
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = stringResource(R.string.practice_only_desc),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextSecondary
-                    )
-                }
-            }
-        }
+                Icon(
+                    Icons.Default.Security,
+                    contentDescription = null,
+                    tint = TealSecondary
+                )
 
-        Spacer(modifier = Modifier.height(20.dp))
+                Spacer(Modifier.width(10.dp))
 
-        // Language Switcher (English / العربية)
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = stringResource(R.string.language_label),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    val isEnglish = currentLanguage == "en"
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onChangeLanguage("en") },
-                        color = if (isEnglish) TealPrimary else DarkSurface,
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isEnglish) TealPrimary else DarkSurfaceBorder
-                        )
-                    ) {
-                        Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "English (LTR)",
-                                fontWeight = FontWeight.Bold,
-                                color = if (isEnglish) DeepBlackBackground else TextPrimary
-                            )
-                        }
-                    }
-
-                    val isArabic = currentLanguage == "ar"
-                    Surface(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clickable { onChangeLanguage("ar") },
-                        color = if (isArabic) TealPrimary else DarkSurface,
-                        shape = RoundedCornerShape(8.dp),
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isArabic) TealPrimary else DarkSurfaceBorder
-                        )
-                    ) {
-                        Box(modifier = Modifier.padding(12.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                text = "العربية (RTL)",
-                                fontWeight = FontWeight.Bold,
-                                color = if (isArabic) DeepBlackBackground else TextPrimary
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Python Bridge & Credentials Form
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurfaceCard),
-            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder)
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                // Bridge Host
-                Text(
-                    text = stringResource(R.string.bridge_host_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = bridgeHost,
-                    onValueChange = { bridgeHost = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.bridge_host_hint), color = TextMuted) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = TealPrimary,
-                        unfocusedBorderColor = DarkSurfaceBorder,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Account ID
-                Text(
-                    text = stringResource(R.string.account_id_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = accountId,
-                    onValueChange = { accountId = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("practice_user@example.com", color = TextMuted) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = TealPrimary,
-                        unfocusedBorderColor = DarkSurfaceBorder,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Secure Password (Never displayed in plain text)
-                Text(
-                    text = stringResource(R.string.password_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = {
-                        Text(
-                            text = if (hasSavedPassword) "•••••••• (Encrypted in KeyStore)" else "Enter practice password",
-                            color = TextMuted
-                        )
-                    },
-                    singleLine = true,
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    trailingIcon = {
-                        val icon = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            Icon(icon, contentDescription = "Toggle password visibility", tint = TextSecondary)
-                        }
-                    },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = TealPrimary,
-                        unfocusedBorderColor = DarkSurfaceBorder,
-                        focusedContainerColor = DarkSurface,
-                        unfocusedContainerColor = DarkSurface
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Button(
-                        onClick = {
-                            onSaveSettings(bridgeHost, accountId, password)
-                            password = ""
-                            showSavedSnackbar = true
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(48.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = TealPrimary,
-                            contentColor = DeepBlackBackground
-                        )
-                    ) {
-                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.save_credentials), fontWeight = FontWeight.Bold)
-                    }
-
-                    if (hasSavedPassword || accountId.isNotEmpty()) {
-                        OutlinedButton(
-                            onClick = {
-                                onClearCredentials()
-                                accountId = ""
-                                password = ""
-                            },
-                            modifier = Modifier.height(48.dp),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = LossRed),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF5E2626))
-                        ) {
-                            Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Security Architecture Note
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
-            border = androidx.compose.foundation.BorderStroke(1.dp, DarkSurfaceBorder)
-        ) {
-            Row(
-                modifier = Modifier.padding(14.dp),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(Icons.Default.Security, contentDescription = null, tint = TealSecondary, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = stringResource(R.string.security_note),
-                    style = MaterialTheme.typography.labelSmall,
+                    "Account passwords are stored using Android encrypted storage. " +
+                        "Real trading must be explicitly confirmed before starting.",
                     color = TextSecondary,
-                    lineHeight = 16.sp
+                    fontSize = 12.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(30.dp))
+        Spacer(Modifier.height(30.dp))
     }
 }
+
+@Composable
+private fun AccountCard(
+    title: String,
+    color: Color,
+    accountId: String,
+    onAccountIdChange: (String) -> Unit,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    passwordVisible: Boolean,
+    onTogglePassword: () -> Unit,
+    hasSavedPassword: Boolean,
+    passwordHint: String,
+    onSave: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = DarkSurfaceCard
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            color.copy(alpha = 0.55f)
+        )
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.AccountCircle,
+                    contentDescription = null,
+                    tint = color
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                Text(
+                    title,
+                    color = color,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text("Account email / ID", color = TextSecondary)
+
+            Spacer(Modifier.height(6.dp))
+
+            OutlinedTextField(
+                value = accountId,
+                onValueChange = onAccountIdChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Email
+                ),
+                placeholder = {
+                    Text("Enter account email", color = TextMuted)
+                },
+                colors = accountFieldColors(color)
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            Text("Password", color = TextSecondary)
+
+            Spacer(Modifier.height(6.dp))
+
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = {
+                    Text(
+                        if (hasSavedPassword) "Saved securely - enter only to change"
+                        else passwordHint,
+                        color = TextMuted
+                    )
+                },
+                visualTransformation = if (passwordVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Password
+                ),
+                trailingIcon = {
+                    IconButton(onClick = onTogglePassword) {
+                        Icon(
+                            if (passwordVisible) Icons.Default.VisibilityOff
+                            else Icons.Default.Visibility,
+                            contentDescription = "Toggle password visibility",
+                            tint = TextSecondary
+                        )
+                    }
+                },
+                colors = accountFieldColors(color)
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = color,
+                        contentColor = DeepBlackBackground
+                    )
+                ) {
+                    Icon(Icons.Default.Save, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Save")
+                }
+
+                if (hasSavedPassword || accountId.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = onClear,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFE57373)
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.DeleteOutline,
+                            contentDescription = "Clear account"
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun accountFieldColors(color: Color) =
+    OutlinedTextFieldDefaults.colors(
+        focusedTextColor = Color.White,
+        unfocusedTextColor = Color.White,
+        focusedBorderColor = color,
+        unfocusedBorderColor = DarkSurfaceBorder,
+        focusedContainerColor = DarkSurface,
+        unfocusedContainerColor = DarkSurface
+    )

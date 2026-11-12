@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iqbotpro.app.R
 import com.iqbotpro.app.data.model.BotState
-import com.iqbotpro.app.data.model.ConnectionStatus
 import com.iqbotpro.app.data.model.TradeItem
 import com.iqbotpro.app.ui.theme.*
 import java.util.Locale
@@ -32,15 +31,44 @@ import java.util.Locale
 fun DashboardScreen(
     balance: Double?,
     dailyProfit: Double,
-    connectionStatus: ConnectionStatus,
     botState: BotState,
+    botMessage: String,
     recentTrades: List<TradeItem>,
-    onStartBot: () -> Unit,
+    onStartBot: (String, Boolean) -> Unit,
     onStopBot: () -> Unit,
-    onConnectBridge: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+var selectedAccountMode by remember { mutableStateOf("PRACTICE") }
+var showRealConfirmation by remember { mutableStateOf(false) }
+
+    if (showRealConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showRealConfirmation = false },
+            title = { Text("تأكيد التداول الحقيقي") },
+            text = {
+                Text(
+                    "أنت على وشك تشغيل البوت على حساب REAL بأموال حقيقية. " +
+                    "قد تتعرض لخسارة مالية. هل تؤكد رغبتك في المتابعة؟"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRealConfirmation = false
+                    onStartBot("REAL", true)
+                }) {
+                    Text("أوافق وأبدأ")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRealConfirmation = false
+                }) {
+                    Text("إلغاء")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -71,30 +99,37 @@ fun DashboardScreen(
                 )
             }
 
-            // Practice Mode Locked Badge
-            Surface(
-                color = TealDarkBg,
-                shape = RoundedCornerShape(20.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, TealDeep)
+            // Account Mode Selector
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Shield,
-                        contentDescription = "Practice Mode",
-                        tint = TealPrimary,
-                        modifier = Modifier.size(14.dp)
+                FilterChip(
+                    selected = selectedAccountMode == "PRACTICE",
+                    onClick = {
+                        if (botState != BotState.RUNNING) {
+                            selectedAccountMode = "PRACTICE"
+                        }
+                    },
+                    label = { Text("PRACTICE", fontWeight = FontWeight.Bold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFFFF9800),
+                        selectedLabelColor = Color.Black
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "PRACTICE ONLY",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TealPrimary
+                )
+                FilterChip(
+                    selected = selectedAccountMode == "REAL",
+                    onClick = {
+                        if (botState != BotState.RUNNING) {
+                            selectedAccountMode = "REAL"
+                        }
+                    },
+                    label = { Text("REAL", fontWeight = FontWeight.Bold) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = Color(0xFF2E7D32),
+                        selectedLabelColor = Color.White
                     )
-                }
+                )
             }
         }
 
@@ -185,7 +220,16 @@ fun DashboardScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Connection Status Card
+        // Internal Bot Status Card
+        val statusDotColor by animateColorAsState(
+            targetValue = when {
+                botMessage.contains("جاري") -> DrawYellow
+                botState == BotState.RUNNING -> WinGreen
+                botState == BotState.PAUSED -> DrawYellow
+                else -> LossRed
+            },
+            label = "botStatusDotColor"
+        )
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
@@ -196,59 +240,30 @@ fun DashboardScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val statusDotColor by animateColorAsState(
-                        targetValue = when (connectionStatus) {
-                            ConnectionStatus.CONNECTED -> WinGreen
-                            ConnectionStatus.CONNECTING -> DrawYellow
-                            ConnectionStatus.DISCONNECTED -> LossRed
-                            ConnectionStatus.ERROR -> LossRed
-                        },
-                        label = "statusDotColor"
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(statusDotColor)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                    Text(
+                        text = "حالة البوت",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .clip(CircleShape)
-                            .background(statusDotColor)
+                    Text(
+                        text = botMessage,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextSecondary
                     )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = stringResource(R.string.connection_status),
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = when (connectionStatus) {
-                                ConnectionStatus.CONNECTED -> stringResource(R.string.status_connected)
-                                ConnectionStatus.CONNECTING -> stringResource(R.string.status_connecting)
-                                ConnectionStatus.DISCONNECTED -> stringResource(R.string.status_disconnected)
-                                ConnectionStatus.ERROR -> "Connection Failed"
-                            },
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                    }
-                }
-
-                if (connectionStatus != ConnectionStatus.CONNECTED) {
-                    OutlinedButton(
-                        onClick = onConnectBridge,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = TealPrimary),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, TealDeep),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(text = stringResource(R.string.btn_connect), fontSize = 12.sp)
-                    }
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(20.dp))
 
         // Main Controls: START and STOP Buttons
@@ -257,7 +272,13 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Button(
-                onClick = onStartBot,
+                onClick = {
+                    if (selectedAccountMode == "REAL") {
+                        showRealConfirmation = true
+                    } else {
+                        onStartBot("PRACTICE", false)
+                    }
+                },
                 enabled = botState != BotState.RUNNING,
                 modifier = Modifier
                     .weight(1f)

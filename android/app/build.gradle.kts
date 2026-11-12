@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.chaquo.python")
 }
 
 android {
@@ -14,6 +15,9 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -56,6 +60,17 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+chaquopy {
+    defaultConfig {
+        version = "3.13"
+        pip {
+            install("requests==2.34.2")
+            install("websocket-client==0.56.0")
+            install("tzdata==2026.6")
         }
     }
 }

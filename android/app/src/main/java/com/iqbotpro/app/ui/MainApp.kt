@@ -1,5 +1,7 @@
 package com.iqbotpro.app.ui
 
+import android.content.Intent
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -8,15 +10,23 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.iqbotpro.app.R
-import com.iqbotpro.app.data.network.BotBridgeClient
+import com.iqbotpro.app.data.model.BotState
+import com.iqbotpro.app.data.model.TradeItem
+import com.iqbotpro.app.data.network.PythonBotEngine
 import com.iqbotpro.app.data.security.SecureStorageManager
+import com.iqbotpro.app.service.BotForegroundService
 import com.iqbotpro.app.ui.screens.*
 import com.iqbotpro.app.ui.theme.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 enum class AppTab(val icon: ImageVector, val labelRes: Int) {
     DASHBOARD(Icons.Default.Dashboard, R.string.tab_dashboard),
@@ -26,27 +36,74 @@ enum class AppTab(val icon: ImageVector, val labelRes: Int) {
 }
 
 @Composable
-fun MainApp(
-    bridgeClient: BotBridgeClient,
-    secureStorage: SecureStorageManager
-) {
+fun MainApp(secureStorage: SecureStorageManager) {
+
+    val context = LocalContext.current
+    val engine = remember { PythonBotEngine() }
+
     var currentTab by remember { mutableStateOf(AppTab.DASHBOARD) }
-    var currentLanguage by remember { mutableStateOf(secureStorage.getLanguage()) }
+    var currentLanguage by remember {
+        mutableStateOf(secureStorage.getLanguage())
+    }
     var selectedStrategyMode by remember { mutableStateOf("both") }
 
-    val connectionStatus by bridgeClient.connectionStatus.collectAsState()
-    val botState by bridgeClient.botState.collectAsState()
-    val balance by bridgeClient.practiceBalance.collectAsState()
-    val dailyProfit by bridgeClient.dailyProfit.collectAsState()
-    val trades by bridgeClient.trades.collectAsState()
+    var botState by remember { mutableStateOf(BotState.IDLE) }
+    var botMessage by remember { mutableStateOf("غير شغال") }
+    var balance by remember { mutableStateOf<Double?>(null) }
+    var dailyProfit by remember { mutableStateOf(0.0) }
+    var trades by remember { mutableStateOf<List<TradeItem>>(emptyList()) }
 
+    // Read internal Python engine status and trade history.
     LaunchedEffect(Unit) {
-        bridgeClient.connect(secureStorage.getBridgeHost())
+        while (true) {
+            try {
+                val snapshot = withContext(Dispatchers.IO) {
+                    engine.getBotStatus() to engine.getTrades(100)
+                }
+
+                val status = snapshot.first
+                val running = status["running"] as? Boolean ?: false
+                val message = status["text"]?.toString() ?: "غير شغال"
+
+                botMessage = message
+                botState = when {
+                    running || message.contains("جاري") -> BotState.RUNNING
+                    message == "غير شغال" -> BotState.IDLE
+                    else -> BotState.STOPPED
+                }
+
+                balance = (status["balance"] as? Number)?.toDouble()
+                dailyProfit = (status["pnl"] as? Number)?.toDouble() ?: 0.0
+
+                trades = snapshot.second.map { item ->
+                    TradeItem(
+                        id = item["id"]?.toString() ?: "",
+                        timestamp = (item["timestamp"] as? Number)?.toLong() ?: 0L,
+                        pair = item["pair"]?.toString() ?: "-",
+                        direction = item["direction"]?.toString() ?: "",
+                        amount = (item["amount"] as? Number)?.toDouble() ?: 0.0,
+                        result = item["result"]?.toString() ?: "PENDING",
+                        profit = (item["profit"] as? Number)?.toDouble() ?: 0.0,
+                        martingaleLevel = (item["martingaleLevel"] as? Number)?.toInt() ?: 1,
+                        entryPrice = (item["entryPrice"] as? Number)?.toDouble() ?: 0.0,
+                        exitPrice = (item["exitPrice"] as? Number)?.toDouble() ?: 0.0
+                    )
+                }
+            } catch (e: Exception) {
+                botMessage = "خطأ في قراءة حالة البوت: ${e.message ?: "غير معروف"}"
+            }
+
+            delay(2000)
+        }
     }
 
-    val layoutDirection = if (currentLanguage == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr
+    val layoutDirection =
+        if (currentLanguage == "ar") LayoutDirection.Rtl
+        else LayoutDirection.Ltr
 
-    CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
+    CompositionLocalProvider(
+        LocalLayoutDirection provides layoutDirection
+    ) {
         Scaffold(
             bottomBar = {
                 NavigationBar(
@@ -56,6 +113,7 @@ fun MainApp(
                 ) {
                     AppTab.values().forEach { tab ->
                         val selected = currentTab == tab
+
                         NavigationBarItem(
                             selected = selected,
                             onClick = { currentTab = tab },
@@ -91,35 +149,113 @@ fun MainApp(
                     AppTab.DASHBOARD -> DashboardScreen(
                         balance = balance,
                         dailyProfit = dailyProfit,
-                        connectionStatus = connectionStatus,
                         botState = botState,
+                        botMessage = botMessage,
                         recentTrades = trades,
-                        onStartBot = { bridgeClient.startBot(selectedStrategyMode) },
-                        onStopBot = { bridgeClient.stopBot() },
-                        onConnectBridge = { bridgeClient.connect(secureStorage.getBridgeHost()) },
-                        onNavigateToSettings = { currentTab = AppTab.SETTINGS }
+                        onStartBot = { mode, realConfirmed ->
+
+                            val email = if (mode == "REAL") {
+                                secureStorage.getRealAccountId()
+                            } else {
+                                secureStorage.getPracticeAccountId()
+                            }
+
+                            val password = if (mode == "REAL") {
+                                secureStorage.getRealPassword()
+                            } else {
+                                secureStorage.getPracticePassword()
+                            }
+
+                            if (email.isBlank() || password.isNullOrBlank()) {
+                                Toast.makeText(
+                                    context,
+                                    "من فضلك احفظ البريد الإلكتروني وكلمة المرور للحساب المختار من Settings",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            } else {
+                                try {
+                                    val intent = Intent(
+                                        context,
+                                        BotForegroundService::class.java
+                                    ).apply {
+                                        action = BotForegroundService.ACTION_START
+                                        putExtra(BotForegroundService.EXTRA_EMAIL, email)
+                                        putExtra(BotForegroundService.EXTRA_PASSWORD, password)
+                                        putExtra(BotForegroundService.EXTRA_ACCOUNT_MODE, mode)
+                                        putExtra(BotForegroundService.EXTRA_STRATEGY_MODE, selectedStrategyMode)
+                                        putExtra(BotForegroundService.EXTRA_REAL_CONFIRMED, realConfirmed)
+                                    }
+
+                                    ContextCompat.startForegroundService(context, intent)
+
+                                    botMessage = "جاري بدء التشغيل"
+                                    botState = BotState.RUNNING
+                                } catch (e: Exception) {
+                                    Toast.makeText(
+                                        context,
+                                        "تعذر تشغيل الخدمة: ${e.message}",
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                            }
+                        },
+                        onStopBot = {
+                            val intent = Intent(
+                                context,
+                                BotForegroundService::class.java
+                            ).apply {
+                                action = BotForegroundService.ACTION_STOP
+                            }
+                            context.startService(intent)
+                            botMessage = "جارٍ طلب إيقاف البوت"
+                        },
+                        onNavigateToSettings = {
+                            currentTab = AppTab.SETTINGS
+                        }
                     )
+
                     AppTab.STRATEGY -> StrategyScreen(
                         selectedMode = selectedStrategyMode,
-                        onModeChange = { selectedStrategyMode = it }
+                        onModeChange = {
+                            selectedStrategyMode = it
+                        }
                     )
-                    AppTab.HISTORY -> HistoryScreen(trades = trades)
+
+                    AppTab.HISTORY -> HistoryScreen(
+                        trades = trades
+                    )
+
                     AppTab.SETTINGS -> SettingsScreen(
-                        currentHost = secureStorage.getBridgeHost(),
-                        currentAccountId = secureStorage.getPracticeAccountId(),
-                        hasSavedPassword = secureStorage.hasSavedPassword(),
+                        practiceAccountId = secureStorage.getPracticeAccountId(),
+                        hasPracticePassword = secureStorage.hasPracticePassword(),
+                        realAccountId = secureStorage.getRealAccountId(),
+                        hasRealPassword = secureStorage.hasRealPassword(),
                         currentLanguage = currentLanguage,
-                        onSaveSettings = { host, id, pwd ->
-                            secureStorage.saveBridgeHost(host)
-                            if (id.isNotEmpty()) secureStorage.savePracticeAccountId(id)
-                            if (pwd.isNotEmpty()) secureStorage.savePracticePassword(pwd)
+                        onSavePractice = { id, password ->
+                            if (id.isNotEmpty()) {
+                                secureStorage.savePracticeAccountId(id)
+                            }
+                            if (password.isNotEmpty()) {
+                                secureStorage.savePracticePassword(password)
+                            }
                         },
-                        onClearCredentials = {
-                            secureStorage.clearCredentials()
+                        onSaveReal = { id, password ->
+                            if (id.isNotEmpty()) {
+                                secureStorage.saveRealAccountId(id)
+                            }
+                            if (password.isNotEmpty()) {
+                                secureStorage.saveRealPassword(password)
+                            }
                         },
-                        onChangeLanguage = { newLang ->
-                            currentLanguage = newLang
-                            secureStorage.saveLanguage(newLang)
+                        onClearPractice = {
+                            secureStorage.clearPracticeCredentials()
+                        },
+                        onClearReal = {
+                            secureStorage.clearRealCredentials()
+                        },
+                        onChangeLanguage = { newLanguage ->
+                            currentLanguage = newLanguage
+                            secureStorage.saveLanguage(newLanguage)
                         }
                     )
                 }

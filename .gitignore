@@ -6,3 +6,15 @@
 *.backup
 *.before_strategy_changes
 local.properties
+
+# IQ BOT private data
+**/config.json
+**/state.json
+**/trades.csv
+**/bot.log
+**/.env
+
+# Local backups and temporary build configs
+backups/
+*.broken
+*.before_pip
