@@ -39,10 +39,12 @@ class BotForegroundService : Service() {
             Python.start(AndroidPlatform(applicationContext))
         }
 
-        Python.getInstance()
-            .getModule("os")
-            .get("environ")
-            .callAttr("__setitem__", "IQBOT_DATA_DIR", filesDir.absolutePath)
+        val python = Python.getInstance()
+        val osModule = python.getModule("os")
+        val environ = requireNotNull(osModule.get("environ")) {
+            "Python os.environ is unavailable"
+        }
+        environ.callAttr("__setitem__", "IQBOT_DATA_DIR", filesDir.absolutePath)
 
         engine = PythonBotEngine()
     }
