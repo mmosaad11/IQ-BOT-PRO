@@ -38,6 +38,11 @@ def start_bot(config):
     return {"started": True}
 
 
+def set_bot_error(message):
+    bot.set_status(running=False, error=str(message), text=f"خطأ: {message}")
+    return True
+
+
 def stop_bot():
     bot.stop()
     return {"stop_requested": True}

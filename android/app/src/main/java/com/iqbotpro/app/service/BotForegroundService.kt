@@ -119,6 +119,7 @@ class BotForegroundService : Service() {
                     engine.startBot(config)
 
                 } catch (e: Exception) {
+                    engine.reportStartError(e.message ?: e.toString())
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }

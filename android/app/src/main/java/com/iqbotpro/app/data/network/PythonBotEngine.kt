@@ -14,6 +14,10 @@ class PythonBotEngine {
         adapter.callAttr("start_bot", HashMap(config))
     }
 
+    fun reportStartError(error: String) {
+        adapter.callAttr("set_bot_error", error)
+    }
+
     fun stopBot() {
         adapter.callAttr("stop_bot")
     }
@@ -22,6 +26,9 @@ class PythonBotEngine {
         val json = JSONObject(adapter.callAttr("get_bot_status").toString())
         return mapOf(
             "running" to json.optBoolean("running", false),
+            "connected" to json.optBoolean("connected", false),
+            "account_mode" to if (json.isNull("account_mode")) null else json.optString("account_mode"),
+            "error" to if (json.isNull("error")) null else json.optString("error"),
             "text" to json.optString("text", "غير شغال"),
             "balance" to if (json.isNull("balance")) null else json.optDouble("balance"),
             "pnl" to json.optDouble("pnl", 0.0),
